@@ -10,11 +10,24 @@ import (
 	"time"
 
 	"kyc-verify/internal/config"
+	"kyc-verify/internal/repository"
 	httptransport "kyc-verify/internal/transport/http"
 )
 
 func main() {
 	cfg := config.Load()
+
+	if err := repository.Migrate(cfg.DatabaseURL); err != nil {
+		log.Fatalf("migrate: %v", err)
+	}
+
+	dbCtx, dbCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	pool, err := repository.Connect(dbCtx, cfg.DatabaseURL)
+	dbCancel()
+	if err != nil {
+		log.Fatalf("connect to database: %v", err)
+	}
+	defer pool.Close()
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.HTTPPort,
