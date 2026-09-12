@@ -9,9 +9,11 @@ import (
 	"syscall"
 	"time"
 
+	"kyc-verify/internal/auth"
 	"kyc-verify/internal/config"
 	"kyc-verify/internal/repository"
 	httptransport "kyc-verify/internal/transport/http"
+	"kyc-verify/internal/usecase"
 )
 
 func main() {
@@ -29,9 +31,16 @@ func main() {
 	}
 	defer pool.Close()
 
+	jwtIssuer := auth.NewJWTIssuer(cfg.JWTSecret, cfg.JWTTTL)
+	userRepo := repository.NewUserRepository(pool)
+	authUsecase := usecase.NewAuthUsecase(userRepo, jwtIssuer)
+
 	srv := &http.Server{
-		Addr:              ":" + cfg.HTTPPort,
-		Handler:           httptransport.NewRouter(),
+		Addr: ":" + cfg.HTTPPort,
+		Handler: httptransport.NewRouter(httptransport.Deps{
+			AuthUsecase: authUsecase,
+			JWTIssuer:   jwtIssuer,
+		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
