@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -11,8 +12,10 @@ import (
 )
 
 type Deps struct {
-	AuthUsecase *usecase.AuthUsecase
-	JWTIssuer   *auth.JWTIssuer
+	AuthUsecase  *usecase.AuthUsecase
+	JWTIssuer    *auth.JWTIssuer
+	RefreshTTL   time.Duration
+	CookieSecure bool
 }
 
 func NewRouter(deps Deps) http.Handler {
@@ -24,11 +27,17 @@ func NewRouter(deps Deps) http.Handler {
 
 	r.Get("/healthz", handleHealthz)
 
-	authH := &authHandler{auth: deps.AuthUsecase}
+	authH := &authHandler{
+		auth:         deps.AuthUsecase,
+		refreshTTL:   deps.RefreshTTL,
+		cookieSecure: deps.CookieSecure,
+	}
 
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/auth/register", authH.register)
 		r.Post("/auth/login", authH.login)
+		r.Post("/auth/refresh", authH.refresh)
+		r.Post("/auth/logout", authH.logout)
 
 		r.Group(func(r chi.Router) {
 			r.Use(RequireAuth(deps.JWTIssuer))

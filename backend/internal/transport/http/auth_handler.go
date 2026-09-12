@@ -5,13 +5,18 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"kyc-verify/internal/domain"
 	"kyc-verify/internal/usecase"
 )
 
+const refreshCookieName = "refresh_token"
+
 type authHandler struct {
-	auth *usecase.AuthUsecase
+	auth         *usecase.AuthUsecase
+	refreshTTL   time.Duration
+	cookieSecure bool
 }
 
 type authRequest struct {
@@ -20,7 +25,7 @@ type authRequest struct {
 }
 
 type authResponse struct {
-	Token string `json:"token"`
+	AccessToken string `json:"access_token"`
 }
 
 func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
@@ -30,13 +35,14 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.auth.Register(r.Context(), req.Email, req.Password)
+	pair, err := h.auth.Register(r.Context(), req.Email, req.Password)
 	if err != nil {
 		writeAuthError(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, authResponse{Token: token})
+	h.setRefreshCookie(w, pair.RefreshToken)
+	writeJSON(w, http.StatusCreated, authResponse{AccessToken: pair.AccessToken})
 }
 
 func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
@@ -46,13 +52,73 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.auth.Login(r.Context(), req.Email, req.Password)
+	pair, err := h.auth.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
 		writeAuthError(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, authResponse{Token: token})
+	h.setRefreshCookie(w, pair.RefreshToken)
+	writeJSON(w, http.StatusOK, authResponse{AccessToken: pair.AccessToken})
+}
+
+func (h *authHandler) refresh(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie(refreshCookieName)
+	if err != nil || cookie.Value == "" {
+		writeError(w, http.StatusUnauthorized, "missing refresh token")
+		return
+	}
+
+	pair, err := h.auth.Refresh(r.Context(), cookie.Value)
+	if err != nil {
+		if errors.Is(err, usecase.ErrInvalidRefreshToken) {
+			h.clearRefreshCookie(w)
+			writeError(w, http.StatusUnauthorized, err.Error())
+			return
+		}
+		log.Printf("refresh error: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	h.setRefreshCookie(w, pair.RefreshToken)
+	writeJSON(w, http.StatusOK, authResponse{AccessToken: pair.AccessToken})
+}
+
+func (h *authHandler) logout(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie(refreshCookieName)
+	if err == nil && cookie.Value != "" {
+		if err := h.auth.Logout(r.Context(), cookie.Value); err != nil {
+			log.Printf("logout error: %v", err)
+		}
+	}
+
+	h.clearRefreshCookie(w)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *authHandler) setRefreshCookie(w http.ResponseWriter, token string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshCookieName,
+		Value:    token,
+		Path:     "/api/auth",
+		HttpOnly: true,
+		Secure:   h.cookieSecure,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   int(h.refreshTTL.Seconds()),
+	})
+}
+
+func (h *authHandler) clearRefreshCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshCookieName,
+		Value:    "",
+		Path:     "/api/auth",
+		HttpOnly: true,
+		Secure:   h.cookieSecure,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
 }
 
 func writeAuthError(w http.ResponseWriter, err error) {

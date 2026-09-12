@@ -33,13 +33,16 @@ func main() {
 
 	jwtIssuer := auth.NewJWTIssuer(cfg.JWTSecret, cfg.JWTTTL)
 	userRepo := repository.NewUserRepository(pool)
-	authUsecase := usecase.NewAuthUsecase(userRepo, jwtIssuer)
+	refreshTokenRepo := repository.NewRefreshTokenRepository(pool)
+	authUsecase := usecase.NewAuthUsecase(userRepo, refreshTokenRepo, jwtIssuer, cfg.RefreshTTL)
 
 	srv := &http.Server{
 		Addr: ":" + cfg.HTTPPort,
 		Handler: httptransport.NewRouter(httptransport.Deps{
-			AuthUsecase: authUsecase,
-			JWTIssuer:   jwtIssuer,
+			AuthUsecase:  authUsecase,
+			JWTIssuer:    jwtIssuer,
+			RefreshTTL:   cfg.RefreshTTL,
+			CookieSecure: cfg.CookieSecure,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
