@@ -18,3 +18,9 @@ type RefreshTokenRepository interface {
 	Revoke(ctx context.Context, id uuid.UUID) error
 	RevokeAllForUser(ctx context.Context, userID uuid.UUID) error
 }
+
+type ApplicantRepository interface {
+	Create(ctx context.Context, applicant *Applicant) error
+	GetByUserID(ctx context.Context, userID uuid.UUID) (*Applicant, error)
+	Update(ctx context.Context, applicant *Applicant) error
+}

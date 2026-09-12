@@ -136,9 +136,8 @@ func writeAuthError(w http.ResponseWriter, err error) {
 }
 
 func handleMe(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ClaimsFromContext(r.Context())
+	claims, ok := requireClaims(w, r)
 	if !ok {
-		writeError(w, http.StatusUnauthorized, "missing claims")
 		return
 	}
 

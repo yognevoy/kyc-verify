@@ -12,10 +12,11 @@ import (
 )
 
 type Deps struct {
-	AuthUsecase  *usecase.AuthUsecase
-	JWTIssuer    *auth.JWTIssuer
-	RefreshTTL   time.Duration
-	CookieSecure bool
+	AuthUsecase      *usecase.AuthUsecase
+	ApplicantUsecase *usecase.ApplicantUsecase
+	JWTIssuer        *auth.JWTIssuer
+	RefreshTTL       time.Duration
+	CookieSecure     bool
 }
 
 func NewRouter(deps Deps) http.Handler {
@@ -32,6 +33,9 @@ func NewRouter(deps Deps) http.Handler {
 		refreshTTL:   deps.RefreshTTL,
 		cookieSecure: deps.CookieSecure,
 	}
+	applicantH := &applicantHandler{
+		applicants: deps.ApplicantUsecase,
+	}
 
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/auth/register", authH.register)
@@ -42,6 +46,9 @@ func NewRouter(deps Deps) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(RequireAuth(deps.JWTIssuer))
 			r.Get("/me", handleMe)
+			r.Post("/applicants", applicantH.create)
+			r.Get("/applicants/me", applicantH.getMe)
+			r.Put("/applicants/me", applicantH.updateMe)
 		})
 	})
 
