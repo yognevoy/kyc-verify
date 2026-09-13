@@ -9,7 +9,8 @@ RUN CGO_ENABLED=0 go build -o /bin/api ./cmd/api
 
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates && \
-    adduser -D -u 10001 appuser
+    adduser -D -u 10001 appuser && \
+    mkdir -p /uploads && chown appuser:appuser /uploads
 USER appuser
 
 COPY --from=builder /bin/api /bin/api
