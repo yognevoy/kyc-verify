@@ -14,6 +14,7 @@ import (
 type Deps struct {
 	AuthUsecase      *usecase.AuthUsecase
 	ApplicantUsecase *usecase.ApplicantUsecase
+	DocumentUsecase  *usecase.DocumentUsecase
 	JWTIssuer        *auth.JWTIssuer
 	RefreshTTL       time.Duration
 	CookieSecure     bool
@@ -36,6 +37,10 @@ func NewRouter(deps Deps) http.Handler {
 	applicantH := &applicantHandler{
 		applicants: deps.ApplicantUsecase,
 	}
+	documentH := &documentHandler{
+		applicants: deps.ApplicantUsecase,
+		documents:  deps.DocumentUsecase,
+	}
 
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/auth/register", authH.register)
@@ -49,6 +54,8 @@ func NewRouter(deps Deps) http.Handler {
 			r.Post("/applicants", applicantH.create)
 			r.Get("/applicants/me", applicantH.getMe)
 			r.Put("/applicants/me", applicantH.updateMe)
+			r.Post("/documents", documentH.upload)
+			r.Get("/documents/me", documentH.listMine)
 		})
 	})
 

@@ -12,6 +12,7 @@ import (
 	"kyc-verify/internal/auth"
 	"kyc-verify/internal/config"
 	"kyc-verify/internal/repository"
+	"kyc-verify/internal/storage"
 	httptransport "kyc-verify/internal/transport/http"
 	"kyc-verify/internal/usecase"
 )
@@ -39,11 +40,16 @@ func main() {
 	applicantRepo := repository.NewApplicantRepository(pool)
 	applicantUsecase := usecase.NewApplicantUsecase(applicantRepo)
 
+	documentRepo := repository.NewDocumentRepository(pool)
+	localStorage := storage.NewLocalStorage(cfg.UploadDir)
+	documentUsecase := usecase.NewDocumentUsecase(documentRepo, localStorage)
+
 	srv := &http.Server{
 		Addr: ":" + cfg.HTTPPort,
 		Handler: httptransport.NewRouter(httptransport.Deps{
 			AuthUsecase:      authUsecase,
 			ApplicantUsecase: applicantUsecase,
+			DocumentUsecase:  documentUsecase,
 			JWTIssuer:        jwtIssuer,
 			RefreshTTL:       cfg.RefreshTTL,
 			CookieSecure:     cfg.CookieSecure,
