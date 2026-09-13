@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -22,22 +24,30 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+	if err := run(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context) error {
+	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	cfg := config.Load()
 
 	if err := repository.Migrate(cfg.DatabaseURL); err != nil {
-		log.Fatalf("migrate: %v", err)
+		return fmt.Errorf("migrate: %w", err)
 	}
 
-	dbCtx, dbCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	dbCtx, dbCancel := context.WithTimeout(ctx, 5*time.Second)
 	pool, err := repository.Connect(dbCtx, cfg.DatabaseURL)
 	dbCancel()
 	if err != nil {
-		log.Fatalf("connect to database: %v", err)
+		return fmt.Errorf("connect to database: %w", err)
 	}
 	defer pool.Close()
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	jwtIssuer := auth.NewJWTIssuer(cfg.JWTSecret, cfg.JWTTTL)
 	userRepo := repository.NewUserRepository(pool)
@@ -55,7 +65,7 @@ func main() {
 	mockProvider := provider.NewMockProvider(cfg.ProviderMinDelay, cfg.ProviderMaxDelay, cfg.ProviderApproveChance)
 
 	var verificationUsecase *usecase.VerificationUsecase
-	casePool := worker.NewPool[uuid.UUID](256, func(ctx context.Context, caseID uuid.UUID) {
+	casePool := worker.NewPool(256, func(ctx context.Context, caseID uuid.UUID) {
 		verificationUsecase.Process(ctx, caseID)
 	})
 	verificationUsecase = usecase.NewVerificationUsecase(caseRepo, documentRepo, mockProvider, casePool)
@@ -75,22 +85,28 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	serverErrors := make(chan error, 1)
 	go func() {
 		log.Printf("api listening on %s", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("server error: %v", err)
+			serverErrors <- err
 		}
 	}()
 
-	<-ctx.Done()
-	log.Println("shutting down")
+	select {
+	case err := <-serverErrors:
+		return fmt.Errorf("server error: %w", err)
+	case <-ctx.Done():
+		log.Println("shutting down")
+	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("graceful shutdown failed: %v", err)
+		return fmt.Errorf("graceful shutdown failed: %w", err)
 	}
 
 	casePool.Stop()
+	return nil
 }
