@@ -9,12 +9,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
+
 	"kyc-verify/internal/auth"
 	"kyc-verify/internal/config"
+	"kyc-verify/internal/provider"
 	"kyc-verify/internal/repository"
 	"kyc-verify/internal/storage"
 	httptransport "kyc-verify/internal/transport/http"
 	"kyc-verify/internal/usecase"
+	"kyc-verify/internal/worker"
 )
 
 func main() {
@@ -32,6 +36,9 @@ func main() {
 	}
 	defer pool.Close()
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	jwtIssuer := auth.NewJWTIssuer(cfg.JWTSecret, cfg.JWTTTL)
 	userRepo := repository.NewUserRepository(pool)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(pool)
@@ -44,21 +51,29 @@ func main() {
 	localStorage := storage.NewLocalStorage(cfg.UploadDir)
 	documentUsecase := usecase.NewDocumentUsecase(documentRepo, localStorage)
 
+	caseRepo := repository.NewVerificationCaseRepository(pool)
+	mockProvider := provider.NewMockProvider(cfg.ProviderMinDelay, cfg.ProviderMaxDelay, cfg.ProviderApproveChance)
+
+	var verificationUsecase *usecase.VerificationUsecase
+	casePool := worker.NewPool[uuid.UUID](256, func(ctx context.Context, caseID uuid.UUID) {
+		verificationUsecase.Process(ctx, caseID)
+	})
+	verificationUsecase = usecase.NewVerificationUsecase(caseRepo, documentRepo, mockProvider, casePool)
+	casePool.Start(ctx, cfg.WorkerPoolSize)
+
 	srv := &http.Server{
 		Addr: ":" + cfg.HTTPPort,
 		Handler: httptransport.NewRouter(httptransport.Deps{
-			AuthUsecase:      authUsecase,
-			ApplicantUsecase: applicantUsecase,
-			DocumentUsecase:  documentUsecase,
-			JWTIssuer:        jwtIssuer,
-			RefreshTTL:       cfg.RefreshTTL,
-			CookieSecure:     cfg.CookieSecure,
+			AuthUsecase:         authUsecase,
+			ApplicantUsecase:    applicantUsecase,
+			DocumentUsecase:     documentUsecase,
+			VerificationUsecase: verificationUsecase,
+			JWTIssuer:           jwtIssuer,
+			RefreshTTL:          cfg.RefreshTTL,
+			CookieSecure:        cfg.CookieSecure,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	go func() {
 		log.Printf("api listening on %s", srv.Addr)
@@ -76,4 +91,6 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("graceful shutdown failed: %v", err)
 	}
+
+	casePool.Stop()
 }

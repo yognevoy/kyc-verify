@@ -12,12 +12,13 @@ import (
 )
 
 type Deps struct {
-	AuthUsecase      *usecase.AuthUsecase
-	ApplicantUsecase *usecase.ApplicantUsecase
-	DocumentUsecase  *usecase.DocumentUsecase
-	JWTIssuer        *auth.JWTIssuer
-	RefreshTTL       time.Duration
-	CookieSecure     bool
+	AuthUsecase         *usecase.AuthUsecase
+	ApplicantUsecase    *usecase.ApplicantUsecase
+	DocumentUsecase     *usecase.DocumentUsecase
+	VerificationUsecase *usecase.VerificationUsecase
+	JWTIssuer           *auth.JWTIssuer
+	RefreshTTL          time.Duration
+	CookieSecure        bool
 }
 
 func NewRouter(deps Deps) http.Handler {
@@ -41,6 +42,10 @@ func NewRouter(deps Deps) http.Handler {
 		applicants: deps.ApplicantUsecase,
 		documents:  deps.DocumentUsecase,
 	}
+	verificationH := &verificationHandler{
+		applicants:   deps.ApplicantUsecase,
+		verification: deps.VerificationUsecase,
+	}
 
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/auth/register", authH.register)
@@ -56,6 +61,8 @@ func NewRouter(deps Deps) http.Handler {
 			r.Put("/applicants/me", applicantH.updateMe)
 			r.Post("/documents", documentH.upload)
 			r.Get("/documents/me", documentH.listMine)
+			r.Post("/verification-cases", verificationH.submit)
+			r.Get("/verification-cases/me", verificationH.getMe)
 		})
 	})
 
