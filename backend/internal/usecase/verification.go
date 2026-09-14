@@ -42,7 +42,7 @@ func NewVerificationUsecase(
 	return &VerificationUsecase{cases: cases, documents: documents, provider: provider, queue: queue}
 }
 
-func (u *VerificationUsecase) Submit(ctx context.Context, applicantID uuid.UUID) (*domain.VerificationCase, error) {
+func (u *VerificationUsecase) Submit(ctx context.Context, applicantID, userID uuid.UUID) (*domain.VerificationCase, error) {
 	existing, err := u.cases.GetLatestByApplicantID(ctx, applicantID)
 	if err != nil && !errors.Is(err, domain.ErrVerificationCaseNotFound) {
 		return nil, fmt.Errorf("get latest case: %w", err)
@@ -62,9 +62,22 @@ func (u *VerificationUsecase) Submit(ctx context.Context, applicantID uuid.UUID)
 	c := &domain.VerificationCase{
 		ID:          uuid.New(),
 		ApplicantID: applicantID,
-		Status:      domain.StatusSubmitted,
+		Status:      domain.StatusDraft,
 	}
-	if err := u.cases.Create(ctx, c); err != nil {
+	fromStatus := c.Status
+	if err := c.TransitionTo(domain.StatusSubmitted); err != nil {
+		return nil, fmt.Errorf("transition to submitted: %w", err)
+	}
+
+	event := &domain.VerificationCaseEvent{
+		ID:         uuid.New(),
+		CaseID:     c.ID,
+		FromStatus: fromStatus,
+		ToStatus:   c.Status,
+		ActorType:  domain.ActorUser,
+		ActorID:    &userID,
+	}
+	if err := u.cases.Create(ctx, c, event); err != nil {
 		return nil, fmt.Errorf("create case: %w", err)
 	}
 
@@ -86,8 +99,8 @@ func (u *VerificationUsecase) Process(ctx context.Context, caseID uuid.UUID) {
 		return
 	}
 
-	if err := u.cases.UpdateStatus(ctx, c.ID, domain.StatusInReview); err != nil {
-		log.Printf("process case %s: update to in_review: %v", caseID, err)
+	if err := u.transition(ctx, c, domain.StatusInReview, domain.ActorSystem, nil, nil); err != nil {
+		log.Printf("process case %s: transition to in_review: %v", caseID, err)
 		return
 	}
 
@@ -111,9 +124,67 @@ func (u *VerificationUsecase) Process(ctx context.Context, caseID uuid.UUID) {
 	if result.Decision == domain.DecisionApproved {
 		status = domain.StatusApproved
 	}
-	if err := u.cases.UpdateStatus(ctx, c.ID, status); err != nil {
-		log.Printf("process case %s: update to %s: %v", caseID, status, err)
+
+	var comment *string
+	if result.Reason != "" {
+		comment = &result.Reason
 	}
+	if err := u.transition(ctx, c, status, domain.ActorProvider, nil, comment); err != nil {
+		log.Printf("process case %s: transition to %s: %v", caseID, status, err)
+	}
+}
+
+func (u *VerificationUsecase) Approve(ctx context.Context, caseID, reviewerID uuid.UUID, comment string) (*domain.VerificationCase, error) {
+	return u.decide(ctx, caseID, reviewerID, domain.StatusApproved, comment)
+}
+
+func (u *VerificationUsecase) Reject(ctx context.Context, caseID, reviewerID uuid.UUID, comment string) (*domain.VerificationCase, error) {
+	return u.decide(ctx, caseID, reviewerID, domain.StatusRejected, comment)
+}
+
+func (u *VerificationUsecase) decide(ctx context.Context, caseID, reviewerID uuid.UUID, status domain.CaseStatus, comment string) (*domain.VerificationCase, error) {
+	c, err := u.cases.GetByID(ctx, caseID)
+	if err != nil {
+		return nil, fmt.Errorf("get case: %w", err)
+	}
+
+	var commentPtr *string
+	if comment != "" {
+		commentPtr = &comment
+	}
+
+	if err := u.transition(ctx, c, status, domain.ActorReviewer, &reviewerID, commentPtr); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (u *VerificationUsecase) transition(
+	ctx context.Context,
+	c *domain.VerificationCase,
+	status domain.CaseStatus,
+	actorType domain.ActorType,
+	actorID *uuid.UUID,
+	comment *string,
+) error {
+	fromStatus := c.Status
+	if err := c.TransitionTo(status); err != nil {
+		return err
+	}
+
+	event := &domain.VerificationCaseEvent{
+		ID:         uuid.New(),
+		CaseID:     c.ID,
+		FromStatus: fromStatus,
+		ToStatus:   c.Status,
+		ActorType:  actorType,
+		ActorID:    actorID,
+		Comment:    comment,
+	}
+	if err := u.cases.Transition(ctx, c, event); err != nil {
+		return fmt.Errorf("persist transition: %w", err)
+	}
+	return nil
 }
 
 func isPending(s domain.CaseStatus) bool {

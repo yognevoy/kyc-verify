@@ -43,7 +43,7 @@ func (h *verificationHandler) submit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := h.verification.Submit(r.Context(), applicant.ID)
+	c, err := h.verification.Submit(r.Context(), applicant.ID, claims.UserID)
 	if err != nil {
 		writeVerificationError(w, err)
 		return

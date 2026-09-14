@@ -36,8 +36,8 @@ type DocumentStorage interface {
 }
 
 type VerificationCaseRepository interface {
-	Create(ctx context.Context, c *VerificationCase) error
+	Create(ctx context.Context, c *VerificationCase, event *VerificationCaseEvent) error
 	GetByID(ctx context.Context, id uuid.UUID) (*VerificationCase, error)
 	GetLatestByApplicantID(ctx context.Context, applicantID uuid.UUID) (*VerificationCase, error)
-	UpdateStatus(ctx context.Context, id uuid.UUID, status CaseStatus) error
+	Transition(ctx context.Context, c *VerificationCase, event *VerificationCaseEvent) error
 }
