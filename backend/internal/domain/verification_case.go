@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,4 +26,23 @@ type VerificationCase struct {
 	UpdatedAt   time.Time
 }
 
-var ErrVerificationCaseNotFound = errors.New("verification case not found")
+var (
+	ErrVerificationCaseNotFound = errors.New("verification case not found")
+	ErrInvalidTransition        = errors.New("invalid verification case status transition")
+)
+
+var allowedTransitions = map[CaseStatus][]CaseStatus{
+	StatusDraft:     {StatusSubmitted},
+	StatusSubmitted: {StatusInReview},
+	StatusInReview:  {StatusApproved, StatusRejected},
+}
+
+func (c *VerificationCase) TransitionTo(status CaseStatus) error {
+	for _, allowed := range allowedTransitions[c.Status] {
+		if allowed == status {
+			c.Status = status
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %s -> %s", ErrInvalidTransition, c.Status, status)
+}
