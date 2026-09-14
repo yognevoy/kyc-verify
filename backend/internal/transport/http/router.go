@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"kyc-verify/internal/auth"
+	"kyc-verify/internal/domain"
 	"kyc-verify/internal/usecase"
 )
 
@@ -63,6 +64,12 @@ func NewRouter(deps Deps) http.Handler {
 			r.Get("/documents/me", documentH.listMine)
 			r.Post("/verification-cases", verificationH.submit)
 			r.Get("/verification-cases/me", verificationH.getMe)
+
+			r.Group(func(r chi.Router) {
+				r.Use(RequireRole(string(domain.RoleReviewer)))
+				r.Post("/verification-cases/{id}/approve", verificationH.approve)
+				r.Post("/verification-cases/{id}/reject", verificationH.reject)
+			})
 		})
 	})
 
