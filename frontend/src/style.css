@@ -39,8 +39,8 @@ body {
 }
 
 h1 {
-  font-size: 24px;
-  margin: 0 0 16px;
+  font-size: 32px;
+  margin: 0 0 24px;
 }
 
 h2 {
@@ -73,15 +73,16 @@ nav button {
 form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-width: 320px;
+  gap: 16px;
+  width: 100%;
+  max-width: 400px;
 }
 
 label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 15px;
   color: var(--text-muted);
 }
 
@@ -89,9 +90,10 @@ input,
 textarea,
 button {
   font: inherit;
-  padding: 8px;
+  font-size: 16px;
+  padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--bg);
   color: var(--text);
 }

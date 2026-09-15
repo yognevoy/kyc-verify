@@ -28,7 +28,7 @@ async function onSubmit() {
 </script>
 
 <template>
-  <main>
+  <main class="login">
     <h1>Log in</h1>
     <form @submit.prevent="onSubmit">
       <label>
@@ -44,3 +44,13 @@ async function onSubmit() {
     </form>
   </main>
 </template>
+
+<style scoped>
+.login {
+  min-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+</style>
