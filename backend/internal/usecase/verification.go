@@ -92,8 +92,20 @@ func (u *VerificationUsecase) GetLatestByApplicantID(ctx context.Context, applic
 	return u.cases.GetLatestByApplicantID(ctx, applicantID)
 }
 
+func (u *VerificationUsecase) GetByID(ctx context.Context, caseID uuid.UUID) (*domain.VerificationCase, error) {
+	return u.cases.GetByID(ctx, caseID)
+}
+
 func (u *VerificationUsecase) ListQueue(ctx context.Context) ([]domain.QueueItem, error) {
 	return u.cases.ListQueue(ctx)
+}
+
+func (u *VerificationUsecase) GetDocuments(ctx context.Context, caseID uuid.UUID) ([]domain.Document, error) {
+	c, err := u.cases.GetByID(ctx, caseID)
+	if err != nil {
+		return nil, fmt.Errorf("get case: %w", err)
+	}
+	return u.documents.ListByApplicantID(ctx, c.ApplicantID)
 }
 
 func (u *VerificationUsecase) Process(ctx context.Context, caseID uuid.UUID) {

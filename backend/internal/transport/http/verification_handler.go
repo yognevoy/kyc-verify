@@ -118,6 +118,42 @@ func (h *verificationHandler) listQueue(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, resp)
 }
 
+func (h *verificationHandler) getByID(w http.ResponseWriter, r *http.Request) {
+	caseID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid case id")
+		return
+	}
+
+	c, err := h.verification.GetByID(r.Context(), caseID)
+	if err != nil {
+		writeVerificationError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toVerificationCaseResponse(c))
+}
+
+func (h *verificationHandler) listDocuments(w http.ResponseWriter, r *http.Request) {
+	caseID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid case id")
+		return
+	}
+
+	docs, err := h.verification.GetDocuments(r.Context(), caseID)
+	if err != nil {
+		writeVerificationError(w, err)
+		return
+	}
+
+	resp := make([]documentResponse, 0, len(docs))
+	for i := range docs {
+		resp = append(resp, toDocumentResponse(&docs[i]))
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
 func (h *verificationHandler) approve(w http.ResponseWriter, r *http.Request) {
 	h.decide(w, r, h.verification.Approve)
 }
