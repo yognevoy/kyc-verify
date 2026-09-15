@@ -81,6 +81,7 @@ func run(ctx context.Context) error {
 			JWTIssuer:           jwtIssuer,
 			RefreshTTL:          cfg.RefreshTTL,
 			CookieSecure:        cfg.CookieSecure,
+			CORSAllowedOrigin:   cfg.CORSAllowedOrigin,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

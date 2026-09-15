@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 
 	"kyc-verify/internal/auth"
 	"kyc-verify/internal/domain"
@@ -20,6 +21,7 @@ type Deps struct {
 	JWTIssuer           *auth.JWTIssuer
 	RefreshTTL          time.Duration
 	CookieSecure        bool
+	CORSAllowedOrigin   string
 }
 
 func NewRouter(deps Deps) http.Handler {
@@ -28,6 +30,12 @@ func NewRouter(deps Deps) http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{deps.CORSAllowedOrigin},
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodOptions},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 
 	r.Get("/healthz", handleHealthz)
 

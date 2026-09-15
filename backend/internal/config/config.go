@@ -14,6 +14,8 @@ type Config struct {
 	RefreshTTL   time.Duration
 	CookieSecure bool
 
+	CORSAllowedOrigin string
+
 	UploadDir      string
 	WorkerPoolSize int
 
@@ -30,6 +32,8 @@ func Load() Config {
 		JWTTTL:       15 * time.Minute,
 		RefreshTTL:   30 * 24 * time.Hour,
 		CookieSecure: getEnv("COOKIE_SECURE", "false") == "true",
+
+		CORSAllowedOrigin: getEnv("CORS_ALLOWED_ORIGIN", "http://localhost:5173"),
 
 		UploadDir:      getEnv("UPLOAD_DIR", "./uploads"),
 		WorkerPoolSize: getEnvInt("WORKER_POOL_SIZE", 4),
