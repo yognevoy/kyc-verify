@@ -16,11 +16,11 @@ async function onSubmit() {
   error.value = ''
   loading.value = true
   try {
-    const data = await api.post('/api/auth/login', { email: email.value, password: password.value })
+    const data = await api.post('/api/auth/register', { email: email.value, password: password.value })
     auth.setAccessToken(data.access_token)
-    router.push(auth.role === 'reviewer' ? '/admin' : '/')
+    router.push('/')
   } catch (err) {
-    error.value = err.message || 'Login failed'
+    error.value = err.message || 'Registration failed'
   } finally {
     loading.value = false
   }
@@ -29,7 +29,7 @@ async function onSubmit() {
 
 <template>
   <main class="login">
-    <h1>Log in</h1>
+    <h1>Register</h1>
     <form @submit.prevent="onSubmit">
       <label>
         Email
@@ -37,12 +37,12 @@ async function onSubmit() {
       </label>
       <label>
         Password
-        <input v-model="password" type="password" required autocomplete="current-password" />
+        <input v-model="password" type="password" required autocomplete="new-password" minlength="8" />
       </label>
-      <button type="submit" :disabled="loading">{{ loading ? 'Logging in...' : 'Log in' }}</button>
+      <button type="submit" :disabled="loading">{{ loading ? 'Registering...' : 'Register' }}</button>
       <p v-if="error" role="alert">{{ error }}</p>
     </form>
-    <p><RouterLink to="/register">Need an account? Register</RouterLink></p>
+    <p><RouterLink to="/login">Already have an account? Log in</RouterLink></p>
   </main>
 </template>
 
