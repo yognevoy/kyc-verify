@@ -93,6 +93,34 @@ func (r *VerificationCaseRepository) Transition(ctx context.Context, c *domain.V
 	return tx.Commit(ctx)
 }
 
+func (r *VerificationCaseRepository) ListQueue(ctx context.Context) ([]domain.QueueItem, error) {
+	const q = `SELECT vc.id, vc.applicant_id, a.full_name, vc.status, vc.created_at, vc.updated_at
+		FROM verification_cases vc
+		JOIN applicants a ON a.id = vc.applicant_id
+		WHERE vc.status IN ('submitted', 'in_review')
+		ORDER BY vc.created_at`
+
+	rows, err := r.pool.Query(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("query queue: %w", err)
+	}
+	defer rows.Close()
+
+	var items []domain.QueueItem
+	for rows.Next() {
+		var item domain.QueueItem
+		err := rows.Scan(&item.CaseID, &item.ApplicantID, &item.ApplicantFullName, &item.Status, &item.CreatedAt, &item.UpdatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("scan queue item: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate queue: %w", err)
+	}
+	return items, nil
+}
+
 func insertEvent(ctx context.Context, tx pgx.Tx, event *domain.VerificationCaseEvent) error {
 	const q = `INSERT INTO verification_case_events (id, case_id, from_status, to_status, actor_type, actor_id, comment)
 		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING created_at`

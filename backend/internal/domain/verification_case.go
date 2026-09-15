@@ -46,3 +46,12 @@ func (c *VerificationCase) TransitionTo(status CaseStatus) error {
 	}
 	return fmt.Errorf("%w: %s -> %s", ErrInvalidTransition, c.Status, status)
 }
+
+type QueueItem struct {
+	CaseID            uuid.UUID
+	ApplicantID       uuid.UUID
+	ApplicantFullName string
+	Status            CaseStatus
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}

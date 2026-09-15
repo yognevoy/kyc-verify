@@ -40,4 +40,5 @@ type VerificationCaseRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*VerificationCase, error)
 	GetLatestByApplicantID(ctx context.Context, applicantID uuid.UUID) (*VerificationCase, error)
 	Transition(ctx context.Context, c *VerificationCase, event *VerificationCaseEvent) error
+	ListQueue(ctx context.Context) ([]QueueItem, error)
 }

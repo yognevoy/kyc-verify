@@ -92,6 +92,10 @@ func (u *VerificationUsecase) GetLatestByApplicantID(ctx context.Context, applic
 	return u.cases.GetLatestByApplicantID(ctx, applicantID)
 }
 
+func (u *VerificationUsecase) ListQueue(ctx context.Context) ([]domain.QueueItem, error) {
+	return u.cases.ListQueue(ctx)
+}
+
 func (u *VerificationUsecase) Process(ctx context.Context, caseID uuid.UUID) {
 	c, err := u.cases.GetByID(ctx, caseID)
 	if err != nil {

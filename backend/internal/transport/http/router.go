@@ -67,6 +67,7 @@ func NewRouter(deps Deps) http.Handler {
 
 			r.Group(func(r chi.Router) {
 				r.Use(RequireRole(string(domain.RoleReviewer)))
+				r.Get("/verification-cases", verificationH.listQueue)
 				r.Post("/verification-cases/{id}/approve", verificationH.approve)
 				r.Post("/verification-cases/{id}/reject", verificationH.reject)
 			})
