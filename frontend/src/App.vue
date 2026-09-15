@@ -16,6 +16,8 @@ async function logout() {
 <template>
   <nav v-if="auth.isAuthenticated">
     <RouterLink to="/">Home</RouterLink>
+    <RouterLink v-if="auth.role === 'applicant'" to="/upload">Upload</RouterLink>
+    <RouterLink v-if="auth.role === 'applicant'" to="/status">Status</RouterLink>
     <RouterLink v-if="auth.role === 'reviewer'" to="/admin">Queue</RouterLink>
     <button @click="logout">Log out</button>
   </nav>

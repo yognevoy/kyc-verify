@@ -1,4 +1,5 @@
 <script setup>
+import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -6,8 +7,13 @@ const auth = useAuthStore()
 
 <template>
   <main>
-    <h1>Signed in</h1>
-    <p>Role: {{ auth.role }}</p>
-    <p>Document upload is not available yet.</p>
+    <h1>Welcome</h1>
+    <template v-if="auth.role === 'applicant'">
+      <p><RouterLink to="/upload">Upload documents</RouterLink></p>
+      <p><RouterLink to="/status">Check verification status</RouterLink></p>
+    </template>
+    <template v-else>
+      <p><RouterLink to="/admin">Review queue</RouterLink></p>
+    </template>
   </main>
 </template>
