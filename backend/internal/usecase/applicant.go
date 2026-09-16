@@ -45,13 +45,17 @@ func (a *ApplicantUsecase) Create(ctx context.Context, userID uuid.UUID, in Appl
 		FullName:  in.FullName,
 		BirthDate: birthDate,
 		Country:   country,
-		RiskLevel: domain.RiskLow,
+		RiskLevel: ScoreRisk(RiskInput{Country: country, BirthDate: birthDate}),
 	}
 
 	if err := a.applicants.Create(ctx, applicant); err != nil {
 		return nil, err
 	}
 	return applicant, nil
+}
+
+func (a *ApplicantUsecase) GetByID(ctx context.Context, id uuid.UUID) (*domain.Applicant, error) {
+	return a.applicants.GetByID(ctx, id)
 }
 
 func (a *ApplicantUsecase) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.Applicant, error) {
@@ -72,6 +76,7 @@ func (a *ApplicantUsecase) Update(ctx context.Context, userID uuid.UUID, in Appl
 	applicant.FullName = in.FullName
 	applicant.BirthDate = birthDate
 	applicant.Country = country
+	applicant.RiskLevel = ScoreRisk(RiskInput{Country: country, BirthDate: birthDate})
 
 	if err := a.applicants.Update(ctx, applicant); err != nil {
 		return nil, err

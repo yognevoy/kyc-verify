@@ -22,6 +22,7 @@ type RefreshTokenRepository interface {
 
 type ApplicantRepository interface {
 	Create(ctx context.Context, applicant *Applicant) error
+	GetByID(ctx context.Context, id uuid.UUID) (*Applicant, error)
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*Applicant, error)
 	Update(ctx context.Context, applicant *Applicant) error
 }

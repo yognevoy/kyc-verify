@@ -37,6 +37,22 @@ func (r *ApplicantRepository) Create(ctx context.Context, applicant *domain.Appl
 	return nil
 }
 
+func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Applicant, error) {
+	const q = `SELECT id, user_id, full_name, birth_date, country, risk_level, created_at, updated_at
+		FROM applicants WHERE id = $1`
+
+	var a domain.Applicant
+	err := r.pool.QueryRow(ctx, q, id).
+		Scan(&a.ID, &a.UserID, &a.FullName, &a.BirthDate, &a.Country, &a.RiskLevel, &a.CreatedAt, &a.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrApplicantNotFound
+		}
+		return nil, fmt.Errorf("query applicant: %w", err)
+	}
+	return &a, nil
+}
+
 func (r *ApplicantRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.Applicant, error) {
 	const q = `SELECT id, user_id, full_name, birth_date, country, risk_level, created_at, updated_at
 		FROM applicants WHERE user_id = $1`
@@ -54,10 +70,10 @@ func (r *ApplicantRepository) GetByUserID(ctx context.Context, userID uuid.UUID)
 }
 
 func (r *ApplicantRepository) Update(ctx context.Context, applicant *domain.Applicant) error {
-	const q = `UPDATE applicants SET full_name = $1, birth_date = $2, country = $3, updated_at = now()
-		WHERE id = $4`
+	const q = `UPDATE applicants SET full_name = $1, birth_date = $2, country = $3, risk_level = $4, updated_at = now()
+		WHERE id = $5`
 
-	if _, err := r.pool.Exec(ctx, q, applicant.FullName, applicant.BirthDate, applicant.Country, applicant.ID); err != nil {
+	if _, err := r.pool.Exec(ctx, q, applicant.FullName, applicant.BirthDate, applicant.Country, applicant.RiskLevel, applicant.ID); err != nil {
 		return fmt.Errorf("update applicant: %w", err)
 	}
 	return nil
