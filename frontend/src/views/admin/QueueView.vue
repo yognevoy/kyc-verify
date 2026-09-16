@@ -28,6 +28,8 @@ onMounted(async () => {
       <thead>
         <tr>
           <th>Applicant</th>
+          <th>Risk</th>
+          <th>Prior rejections</th>
           <th>Status</th>
           <th>Submitted</th>
         </tr>
@@ -35,6 +37,8 @@ onMounted(async () => {
       <tbody>
         <tr v-for="item in items" :key="item.case_id">
           <td><RouterLink :to="`/admin/cases/${item.case_id}`">{{ item.full_name }}</RouterLink></td>
+          <td>{{ item.risk_level }}</td>
+          <td>{{ item.prior_rejections }}</td>
           <td>{{ item.status }}</td>
           <td>{{ new Date(item.created_at).toLocaleString() }}</td>
         </tr>

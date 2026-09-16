@@ -53,6 +53,8 @@ async function decide(action) {
     <template v-else-if="caseInfo">
       <h1>Case {{ caseInfo.id }}</h1>
       <p>Status: {{ caseInfo.status }}</p>
+      <p v-if="caseInfo.applicant_risk_level">Applicant risk: {{ caseInfo.applicant_risk_level }}</p>
+      <p v-if="caseInfo.applicant_prior_rejections != null">Prior rejections: {{ caseInfo.applicant_prior_rejections }}</p>
 
       <h2>Documents</h2>
       <ul>
