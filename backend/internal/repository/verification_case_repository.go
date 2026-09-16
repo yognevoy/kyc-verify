@@ -121,6 +121,16 @@ func (r *VerificationCaseRepository) ListQueue(ctx context.Context) ([]domain.Qu
 	return items, nil
 }
 
+func (r *VerificationCaseRepository) CountByApplicantIDAndStatus(ctx context.Context, applicantID uuid.UUID, status domain.CaseStatus) (int, error) {
+	const q = `SELECT COUNT(*) FROM verification_cases WHERE applicant_id = $1 AND status = $2`
+
+	var count int
+	if err := r.pool.QueryRow(ctx, q, applicantID, status).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count verification cases: %w", err)
+	}
+	return count, nil
+}
+
 func insertEvent(ctx context.Context, tx pgx.Tx, event *domain.VerificationCaseEvent) error {
 	const q = `INSERT INTO verification_case_events (id, case_id, from_status, to_status, actor_type, actor_id, comment)
 		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING created_at`

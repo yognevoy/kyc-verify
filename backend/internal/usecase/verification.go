@@ -16,6 +16,8 @@ var (
 	ErrCaseAlreadyPending = errors.New("a verification case is already in progress")
 )
 
+const maxAutoRejectAttempts = 2
+
 var requiredDocumentTypes = [...]domain.DocumentType{
 	domain.DocumentPassport,
 	domain.DocumentSelfie,
@@ -27,19 +29,21 @@ type CaseQueue interface {
 }
 
 type VerificationUsecase struct {
-	cases     domain.VerificationCaseRepository
-	documents domain.DocumentRepository
-	provider  domain.VerificationProvider
-	queue     CaseQueue
+	cases      domain.VerificationCaseRepository
+	documents  domain.DocumentRepository
+	applicants domain.ApplicantRepository
+	provider   domain.VerificationProvider
+	queue      CaseQueue
 }
 
 func NewVerificationUsecase(
 	cases domain.VerificationCaseRepository,
 	documents domain.DocumentRepository,
+	applicants domain.ApplicantRepository,
 	provider domain.VerificationProvider,
 	queue CaseQueue,
 ) *VerificationUsecase {
-	return &VerificationUsecase{cases: cases, documents: documents, provider: provider, queue: queue}
+	return &VerificationUsecase{cases: cases, documents: documents, applicants: applicants, provider: provider, queue: queue}
 }
 
 func (u *VerificationUsecase) Submit(ctx context.Context, applicantID, userID uuid.UUID) (*domain.VerificationCase, error) {
@@ -108,6 +112,10 @@ func (u *VerificationUsecase) GetDocuments(ctx context.Context, caseID uuid.UUID
 	return u.documents.ListByApplicantID(ctx, c.ApplicantID)
 }
 
+func (u *VerificationUsecase) PriorRejections(ctx context.Context, applicantID uuid.UUID) (int, error) {
+	return u.cases.CountByApplicantIDAndStatus(ctx, applicantID, domain.StatusRejected)
+}
+
 func (u *VerificationUsecase) Process(ctx context.Context, caseID uuid.UUID) {
 	c, err := u.cases.GetByID(ctx, caseID)
 	if err != nil {
@@ -117,6 +125,24 @@ func (u *VerificationUsecase) Process(ctx context.Context, caseID uuid.UUID) {
 
 	if err := u.transition(ctx, c, domain.StatusInReview, domain.ActorSystem, nil, nil); err != nil {
 		log.Printf("process case %s: transition to in_review: %v", caseID, err)
+		return
+	}
+
+	applicant, err := u.applicants.GetByID(ctx, c.ApplicantID)
+	if err != nil {
+		log.Printf("process case %s: get applicant: %v", caseID, err)
+		return
+	}
+	if applicant.RiskLevel != domain.RiskLow {
+		return
+	}
+
+	priorRejections, err := u.PriorRejections(ctx, c.ApplicantID)
+	if err != nil {
+		log.Printf("process case %s: count prior rejections: %v", caseID, err)
+		return
+	}
+	if priorRejections >= maxAutoRejectAttempts {
 		return
 	}
 

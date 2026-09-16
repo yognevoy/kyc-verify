@@ -68,7 +68,7 @@ func run(ctx context.Context) error {
 	casePool := worker.NewPool(256, func(ctx context.Context, caseID uuid.UUID) {
 		verificationUsecase.Process(ctx, caseID)
 	})
-	verificationUsecase = usecase.NewVerificationUsecase(caseRepo, documentRepo, mockProvider, casePool)
+	verificationUsecase = usecase.NewVerificationUsecase(caseRepo, documentRepo, applicantRepo, mockProvider, casePool)
 	casePool.Start(ctx, cfg.WorkerPoolSize)
 
 	srv := &http.Server{
