@@ -51,6 +51,8 @@ type QueueItem struct {
 	CaseID            uuid.UUID
 	ApplicantID       uuid.UUID
 	ApplicantFullName string
+	ApplicantRisk     RiskLevel
+	PriorRejections   int
 	Status            CaseStatus
 	CreatedAt         time.Time
 	UpdatedAt         time.Time

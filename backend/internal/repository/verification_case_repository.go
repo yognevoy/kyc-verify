@@ -94,7 +94,10 @@ func (r *VerificationCaseRepository) Transition(ctx context.Context, c *domain.V
 }
 
 func (r *VerificationCaseRepository) ListQueue(ctx context.Context) ([]domain.QueueItem, error) {
-	const q = `SELECT vc.id, vc.applicant_id, a.full_name, vc.status, vc.created_at, vc.updated_at
+	const q = `SELECT vc.id, vc.applicant_id, a.full_name, a.risk_level,
+			(SELECT COUNT(*) FROM verification_cases prior
+				WHERE prior.applicant_id = vc.applicant_id AND prior.status = 'rejected'),
+			vc.status, vc.created_at, vc.updated_at
 		FROM verification_cases vc
 		JOIN applicants a ON a.id = vc.applicant_id
 		WHERE vc.status IN ('submitted', 'in_review')
@@ -109,7 +112,8 @@ func (r *VerificationCaseRepository) ListQueue(ctx context.Context) ([]domain.Qu
 	var items []domain.QueueItem
 	for rows.Next() {
 		var item domain.QueueItem
-		err := rows.Scan(&item.CaseID, &item.ApplicantID, &item.ApplicantFullName, &item.Status, &item.CreatedAt, &item.UpdatedAt)
+		err := rows.Scan(&item.CaseID, &item.ApplicantID, &item.ApplicantFullName, &item.ApplicantRisk,
+			&item.PriorRejections, &item.Status, &item.CreatedAt, &item.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("scan queue item: %w", err)
 		}

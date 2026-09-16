@@ -22,10 +22,12 @@ type verificationHandler struct {
 }
 
 type verificationCaseResponse struct {
-	ID        string `json:"id"`
-	Status    string `json:"status"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID              string `json:"id"`
+	Status          string `json:"status"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
+	ApplicantRisk   string `json:"applicant_risk_level,omitempty"`
+	PriorRejections *int   `json:"applicant_prior_rejections,omitempty"`
 }
 
 type decisionRequest struct {
@@ -33,12 +35,14 @@ type decisionRequest struct {
 }
 
 type queueItemResponse struct {
-	CaseID      string `json:"case_id"`
-	ApplicantID string `json:"applicant_id"`
-	FullName    string `json:"full_name"`
-	Status      string `json:"status"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	CaseID          string `json:"case_id"`
+	ApplicantID     string `json:"applicant_id"`
+	FullName        string `json:"full_name"`
+	RiskLevel       string `json:"risk_level"`
+	PriorRejections int    `json:"prior_rejections"`
+	Status          string `json:"status"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
 }
 
 func toVerificationCaseResponse(c *domain.VerificationCase) verificationCaseResponse {
@@ -52,12 +56,14 @@ func toVerificationCaseResponse(c *domain.VerificationCase) verificationCaseResp
 
 func toQueueItemResponse(item *domain.QueueItem) queueItemResponse {
 	return queueItemResponse{
-		CaseID:      item.CaseID.String(),
-		ApplicantID: item.ApplicantID.String(),
-		FullName:    item.ApplicantFullName,
-		Status:      string(item.Status),
-		CreatedAt:   item.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:   item.UpdatedAt.Format(time.RFC3339),
+		CaseID:          item.CaseID.String(),
+		ApplicantID:     item.ApplicantID.String(),
+		FullName:        item.ApplicantFullName,
+		RiskLevel:       string(item.ApplicantRisk),
+		PriorRejections: item.PriorRejections,
+		Status:          string(item.Status),
+		CreatedAt:       item.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       item.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -131,7 +137,23 @@ func (h *verificationHandler) getByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toVerificationCaseResponse(c))
+	applicant, err := h.applicants.GetByID(r.Context(), c.ApplicantID)
+	if err != nil {
+		writeApplicantError(w, err)
+		return
+	}
+
+	priorRejections, err := h.verification.PriorRejections(r.Context(), c.ApplicantID)
+	if err != nil {
+		log.Printf("get prior rejections error: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	resp := toVerificationCaseResponse(c)
+	resp.ApplicantRisk = string(applicant.RiskLevel)
+	resp.PriorRejections = &priorRejections
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *verificationHandler) listDocuments(w http.ResponseWriter, r *http.Request) {
