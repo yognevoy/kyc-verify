@@ -1,56 +1,39 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { api } from '../api/client'
+import { ApiError, subscribeToStream } from '../api/client'
 import StatusBadge from '../components/StatusBadge.vue'
-
-const POLL_INTERVAL_MS = 5000
 
 const caseInfo = ref(null)
 const loading = ref(true)
 const error = ref('')
 const noCase = ref(false)
 
-let timer = null
-
-function isTerminal(status) {
-  return status === 'approved' || status === 'rejected'
-}
-
-function stopPolling() {
-  if (timer) {
-    clearInterval(timer)
-    timer = null
-  }
-}
-
-async function load() {
-  try {
-    caseInfo.value = await api.get('/api/verification-cases/me')
-    noCase.value = false
-    if (isTerminal(caseInfo.value.status)) {
-      stopPolling()
-    }
-  } catch (err) {
-    if (err.status === 404) {
-      noCase.value = true
-      stopPolling()
-    } else {
-      error.value = err.message
-    }
-  } finally {
-    loading.value = false
-  }
-}
+let controller = null
 
 onMounted(async () => {
-  await load()
-  if (!noCase.value && caseInfo.value && !isTerminal(caseInfo.value.status)) {
-    timer = setInterval(load, POLL_INTERVAL_MS)
+  controller = new AbortController()
+  try {
+    await subscribeToStream(
+      '/api/verification-cases/stream',
+      (c) => {
+        caseInfo.value = c
+        noCase.value = false
+        loading.value = false
+      },
+      { signal: controller.signal },
+    )
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      noCase.value = true
+    } else if (err.name !== 'AbortError') {
+      error.value = err.message
+    }
+    loading.value = false
   }
 })
 
-onUnmounted(stopPolling)
+onUnmounted(() => controller?.abort())
 </script>
 
 <template>
