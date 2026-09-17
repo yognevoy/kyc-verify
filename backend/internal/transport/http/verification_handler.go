@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -107,6 +108,62 @@ func (h *verificationHandler) getMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, toVerificationCaseResponse(c))
+}
+
+func (h *verificationHandler) stream(w http.ResponseWriter, r *http.Request) {
+	claims, ok := requireClaims(w, r)
+	if !ok {
+		return
+	}
+
+	applicant, err := h.applicants.GetByUserID(r.Context(), claims.UserID)
+	if err != nil {
+		writeApplicantError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+	rc := http.NewResponseController(w)
+
+	if c, err := h.verification.GetLatestByApplicantID(r.Context(), applicant.ID); err == nil {
+		writeSSEEvent(w, toVerificationCaseResponse(c))
+		rc.Flush()
+		if c.Status.IsTerminal() {
+			return
+		}
+	}
+
+	updates, unsubscribe := h.verification.Subscribe(applicant.ID)
+	defer unsubscribe()
+
+	heartbeat := time.NewTicker(20 * time.Second)
+	defer heartbeat.Stop()
+
+	for {
+		select {
+		case c, ok := <-updates:
+			if !ok {
+				return
+			}
+			writeSSEEvent(w, toVerificationCaseResponse(&c))
+			if err := rc.Flush(); err != nil {
+				return
+			}
+			if c.Status.IsTerminal() {
+				return
+			}
+		case <-heartbeat.C:
+			fmt.Fprint(w, ": ping\n\n")
+			if err := rc.Flush(); err != nil {
+				return
+			}
+		case <-r.Context().Done():
+			return
+		}
+	}
 }
 
 func (h *verificationHandler) listQueue(w http.ResponseWriter, r *http.Request) {

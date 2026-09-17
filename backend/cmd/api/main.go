@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,6 +18,7 @@ import (
 	"kyc-verify/internal/config"
 	"kyc-verify/internal/domain"
 	"kyc-verify/internal/provider"
+	"kyc-verify/internal/realtime"
 	"kyc-verify/internal/repository"
 	"kyc-verify/internal/storage"
 	httptransport "kyc-verify/internal/transport/http"
@@ -63,6 +65,7 @@ func run(ctx context.Context) error {
 	documentUsecase := usecase.NewDocumentUsecase(documentRepo, localStorage)
 
 	caseRepo := repository.NewVerificationCaseRepository(pool)
+	hub := realtime.NewHub()
 
 	var verificationUsecase *usecase.VerificationUsecase
 	mockProvider := provider.NewMockProvider(cfg.ProviderMinDelay, cfg.ProviderMaxDelay, cfg.ProviderApproveChance,
@@ -74,11 +77,14 @@ func run(ctx context.Context) error {
 	casePool := worker.NewPool(256, func(ctx context.Context, caseID uuid.UUID) {
 		verificationUsecase.Process(ctx, caseID)
 	})
-	verificationUsecase = usecase.NewVerificationUsecase(caseRepo, documentRepo, applicantRepo, mockProvider, casePool)
+	verificationUsecase = usecase.NewVerificationUsecase(caseRepo, documentRepo, applicantRepo, mockProvider, casePool, hub)
 	casePool.Start(ctx, cfg.WorkerPoolSize)
 
 	srv := &http.Server{
 		Addr: ":" + cfg.HTTPPort,
+		BaseContext: func(net.Listener) context.Context {
+			return ctx
+		},
 		Handler: httptransport.NewRouter(httptransport.Deps{
 			AuthUsecase:         authUsecase,
 			ApplicantUsecase:    applicantUsecase,

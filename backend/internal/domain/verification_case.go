@@ -48,6 +48,10 @@ func (c *VerificationCase) TransitionTo(status CaseStatus) error {
 	return fmt.Errorf("%w: %s -> %s", ErrInvalidTransition, c.Status, status)
 }
 
+func (s CaseStatus) IsTerminal() bool {
+	return len(allowedTransitions[s]) == 0
+}
+
 type QueueItem struct {
 	CaseID            uuid.UUID
 	ApplicantID       uuid.UUID

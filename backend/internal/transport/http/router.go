@@ -72,6 +72,7 @@ func NewRouter(deps Deps) http.Handler {
 			r.Get("/documents/me", documentH.listMine)
 			r.Post("/verification-cases", verificationH.submit)
 			r.Get("/verification-cases/me", verificationH.getMe)
+			r.Get("/verification-cases/stream", verificationH.stream)
 
 			r.Group(func(r chi.Router) {
 				r.Use(RequireRole(string(domain.RoleReviewer)))

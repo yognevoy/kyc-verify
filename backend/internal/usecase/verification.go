@@ -28,12 +28,18 @@ type CaseQueue interface {
 	Enqueue(ctx context.Context, caseID uuid.UUID) error
 }
 
+type CaseNotifier interface {
+	Publish(applicantID uuid.UUID, c domain.VerificationCase)
+	Subscribe(applicantID uuid.UUID) (<-chan domain.VerificationCase, func())
+}
+
 type VerificationUsecase struct {
 	cases      domain.VerificationCaseRepository
 	documents  domain.DocumentRepository
 	applicants domain.ApplicantRepository
 	provider   domain.VerificationProvider
 	queue      CaseQueue
+	notifier   CaseNotifier
 }
 
 func NewVerificationUsecase(
@@ -42,8 +48,13 @@ func NewVerificationUsecase(
 	applicants domain.ApplicantRepository,
 	provider domain.VerificationProvider,
 	queue CaseQueue,
+	notifier CaseNotifier,
 ) *VerificationUsecase {
-	return &VerificationUsecase{cases: cases, documents: documents, applicants: applicants, provider: provider, queue: queue}
+	return &VerificationUsecase{cases: cases, documents: documents, applicants: applicants, provider: provider, queue: queue, notifier: notifier}
+}
+
+func (u *VerificationUsecase) Subscribe(applicantID uuid.UUID) (<-chan domain.VerificationCase, func()) {
+	return u.notifier.Subscribe(applicantID)
 }
 
 func (u *VerificationUsecase) Submit(ctx context.Context, applicantID, userID uuid.UUID) (*domain.VerificationCase, error) {
@@ -89,6 +100,7 @@ func (u *VerificationUsecase) Submit(ctx context.Context, applicantID, userID uu
 		return nil, fmt.Errorf("enqueue case: %w", err)
 	}
 
+	u.notifier.Publish(c.ApplicantID, *c)
 	return c, nil
 }
 
@@ -243,6 +255,7 @@ func (u *VerificationUsecase) transition(
 	if err := u.cases.Transition(ctx, c, event); err != nil {
 		return fmt.Errorf("persist transition: %w", err)
 	}
+	u.notifier.Publish(c.ApplicantID, *c)
 	return nil
 }
 
