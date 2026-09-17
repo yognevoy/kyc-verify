@@ -25,5 +25,5 @@ type VerificationResult struct {
 }
 
 type VerificationProvider interface {
-	Verify(ctx context.Context, req VerificationRequest) (VerificationResult, error)
+	Submit(ctx context.Context, req VerificationRequest) (reference string, err error)
 }

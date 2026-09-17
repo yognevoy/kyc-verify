@@ -152,14 +152,27 @@ func (u *VerificationUsecase) Process(ctx context.Context, caseID uuid.UUID) {
 		return
 	}
 
-	result, err := u.provider.Verify(ctx, domain.VerificationRequest{
+	reference, err := u.provider.Submit(ctx, domain.VerificationRequest{
 		CaseID:      c.ID,
 		ApplicantID: c.ApplicantID,
 		Documents:   docs,
 	})
 	if err != nil {
-		log.Printf("process case %s: provider error: %v", caseID, err)
+		log.Printf("process case %s: provider submit: %v", caseID, err)
 		return
+	}
+	if err := u.cases.SetProviderReference(ctx, c.ID, reference); err != nil {
+		log.Printf("process case %s: set provider reference: %v", caseID, err)
+	}
+}
+
+func (u *VerificationUsecase) HandleProviderCallback(ctx context.Context, reference string, result domain.VerificationResult) error {
+	c, err := u.cases.GetByProviderReference(ctx, reference)
+	if err != nil {
+		return fmt.Errorf("get case by provider reference: %w", err)
+	}
+	if c.Status != domain.StatusInReview {
+		return nil
 	}
 
 	status := domain.StatusRejected
@@ -172,8 +185,12 @@ func (u *VerificationUsecase) Process(ctx context.Context, caseID uuid.UUID) {
 		comment = &result.Reason
 	}
 	if err := u.transition(ctx, c, status, domain.ActorProvider, nil, comment); err != nil {
-		log.Printf("process case %s: transition to %s: %v", caseID, status, err)
+		if errors.Is(err, domain.ErrInvalidTransition) {
+			return nil
+		}
+		return fmt.Errorf("transition to %s: %w", status, err)
 	}
+	return nil
 }
 
 func (u *VerificationUsecase) Approve(ctx context.Context, caseID, reviewerID uuid.UUID, comment string) (*domain.VerificationCase, error) {

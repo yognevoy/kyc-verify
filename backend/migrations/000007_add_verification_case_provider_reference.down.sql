@@ -1,0 +1,2 @@
+DROP INDEX idx_verification_cases_provider_reference;
+ALTER TABLE verification_cases DROP COLUMN provider_reference;

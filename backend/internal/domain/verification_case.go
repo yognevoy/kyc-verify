@@ -19,11 +19,12 @@ const (
 )
 
 type VerificationCase struct {
-	ID          uuid.UUID
-	ApplicantID uuid.UUID
-	Status      CaseStatus
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID                uuid.UUID
+	ApplicantID       uuid.UUID
+	Status            CaseStatus
+	ProviderReference *string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 var (

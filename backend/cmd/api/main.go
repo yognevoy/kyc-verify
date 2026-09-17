@@ -15,6 +15,7 @@ import (
 
 	"kyc-verify/internal/auth"
 	"kyc-verify/internal/config"
+	"kyc-verify/internal/domain"
 	"kyc-verify/internal/provider"
 	"kyc-verify/internal/repository"
 	"kyc-verify/internal/storage"
@@ -62,9 +63,14 @@ func run(ctx context.Context) error {
 	documentUsecase := usecase.NewDocumentUsecase(documentRepo, localStorage)
 
 	caseRepo := repository.NewVerificationCaseRepository(pool)
-	mockProvider := provider.NewMockProvider(cfg.ProviderMinDelay, cfg.ProviderMaxDelay, cfg.ProviderApproveChance)
 
 	var verificationUsecase *usecase.VerificationUsecase
+	mockProvider := provider.NewMockProvider(cfg.ProviderMinDelay, cfg.ProviderMaxDelay, cfg.ProviderApproveChance,
+		func(ctx context.Context, reference string, result domain.VerificationResult) {
+			if err := verificationUsecase.HandleProviderCallback(ctx, reference, result); err != nil {
+				log.Printf("mock provider callback: %v", err)
+			}
+		})
 	casePool := worker.NewPool(256, func(ctx context.Context, caseID uuid.UUID) {
 		verificationUsecase.Process(ctx, caseID)
 	})

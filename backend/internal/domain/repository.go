@@ -43,4 +43,6 @@ type VerificationCaseRepository interface {
 	Transition(ctx context.Context, c *VerificationCase, event *VerificationCaseEvent) error
 	ListQueue(ctx context.Context) ([]QueueItem, error)
 	CountByApplicantIDAndStatus(ctx context.Context, applicantID uuid.UUID, status CaseStatus) (int, error)
+	SetProviderReference(ctx context.Context, caseID uuid.UUID, reference string) error
+	GetByProviderReference(ctx context.Context, reference string) (*VerificationCase, error)
 }

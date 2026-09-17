@@ -125,6 +125,29 @@ func (r *VerificationCaseRepository) ListQueue(ctx context.Context) ([]domain.Qu
 	return items, nil
 }
 
+func (r *VerificationCaseRepository) SetProviderReference(ctx context.Context, caseID uuid.UUID, reference string) error {
+	const q = `UPDATE verification_cases SET provider_reference = $1 WHERE id = $2`
+	if _, err := r.pool.Exec(ctx, q, reference, caseID); err != nil {
+		return fmt.Errorf("set provider reference: %w", err)
+	}
+	return nil
+}
+
+func (r *VerificationCaseRepository) GetByProviderReference(ctx context.Context, reference string) (*domain.VerificationCase, error) {
+	const q = `SELECT id, applicant_id, status, provider_reference, created_at, updated_at
+		FROM verification_cases WHERE provider_reference = $1`
+
+	var c domain.VerificationCase
+	err := r.pool.QueryRow(ctx, q, reference).Scan(&c.ID, &c.ApplicantID, &c.Status, &c.ProviderReference, &c.CreatedAt, &c.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrVerificationCaseNotFound
+		}
+		return nil, fmt.Errorf("query verification case by provider reference: %w", err)
+	}
+	return &c, nil
+}
+
 func (r *VerificationCaseRepository) CountByApplicantIDAndStatus(ctx context.Context, applicantID uuid.UUID, status domain.CaseStatus) (int, error) {
 	const q = `SELECT COUNT(*) FROM verification_cases WHERE applicant_id = $1 AND status = $2`
 
