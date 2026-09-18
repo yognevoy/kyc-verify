@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"math/rand/v2"
 	"time"
 
@@ -10,20 +11,26 @@ import (
 	"kyc-verify/internal/domain"
 )
 
+var ErrMockProviderUnavailable = errors.New("mock provider: simulated failure")
+
 type ResultCallback func(ctx context.Context, reference string, result domain.VerificationResult)
 
 type MockProvider struct {
 	minDelay      time.Duration
 	maxDelay      time.Duration
 	approveChance float64
+	failureChance float64
 	onResult      ResultCallback
 }
 
-func NewMockProvider(minDelay, maxDelay time.Duration, approveChance float64, onResult ResultCallback) *MockProvider {
-	return &MockProvider{minDelay: minDelay, maxDelay: maxDelay, approveChance: approveChance, onResult: onResult}
+func NewMockProvider(minDelay, maxDelay time.Duration, approveChance, failureChance float64, onResult ResultCallback) *MockProvider {
+	return &MockProvider{minDelay: minDelay, maxDelay: maxDelay, approveChance: approveChance, failureChance: failureChance, onResult: onResult}
 }
 
 func (p *MockProvider) Submit(ctx context.Context, _ domain.VerificationRequest) (string, error) {
+	if p.failureChance > 0 && rand.Float64() < p.failureChance {
+		return "", ErrMockProviderUnavailable
+	}
 	reference := uuid.NewString()
 	go p.deliver(ctx, reference)
 	return reference, nil

@@ -68,7 +68,7 @@ func run(ctx context.Context) error {
 	hub := realtime.NewHub()
 
 	var verificationUsecase *usecase.VerificationUsecase
-	mockProvider := provider.NewMockProvider(cfg.ProviderMinDelay, cfg.ProviderMaxDelay, cfg.ProviderApproveChance,
+	mockProvider := provider.NewMockProvider(cfg.ProviderMinDelay, cfg.ProviderMaxDelay, cfg.ProviderApproveChance, cfg.ProviderFailureChance,
 		func(ctx context.Context, reference string, result domain.VerificationResult) {
 			if err := verificationUsecase.HandleProviderCallback(ctx, reference, result); err != nil {
 				log.Printf("mock provider callback: %v", err)
@@ -76,6 +76,7 @@ func run(ctx context.Context) error {
 		})
 	var verificationProvider domain.VerificationProvider = mockProvider
 	verificationProvider = provider.NewRateLimiter(verificationProvider, cfg.ProviderRateLimitRPS, cfg.ProviderRateLimitBurst)
+	verificationProvider = provider.NewCircuitBreaker(verificationProvider, cfg.ProviderCBFailureThreshold, cfg.ProviderCBCooldown)
 
 	casePool := worker.NewPool(256, func(ctx context.Context, caseID uuid.UUID) {
 		verificationUsecase.Process(ctx, caseID)

@@ -11,7 +11,7 @@ import (
 
 func TestRateLimiter_ThrottlesBeyondBurst(t *testing.T) {
 	fake := &fakeProvider{}
-	rl := NewRateLimiter(fake, 10, 1) // 1 token up front, refilled every 100ms
+	rl := NewRateLimiter(fake, 10, 1)
 	ctx := context.Background()
 
 	start := time.Now()
