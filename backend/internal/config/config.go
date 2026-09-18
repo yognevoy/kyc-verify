@@ -22,6 +22,9 @@ type Config struct {
 	ProviderMinDelay      time.Duration
 	ProviderMaxDelay      time.Duration
 	ProviderApproveChance float64
+
+	ProviderRateLimitRPS   float64
+	ProviderRateLimitBurst int
 }
 
 func Load() Config {
@@ -41,6 +44,9 @@ func Load() Config {
 		ProviderMinDelay:      getEnvDuration("PROVIDER_MIN_DELAY", 500*time.Millisecond),
 		ProviderMaxDelay:      getEnvDuration("PROVIDER_MAX_DELAY", 3*time.Second),
 		ProviderApproveChance: getEnvFloat("PROVIDER_APPROVE_CHANCE", 0.8),
+
+		ProviderRateLimitRPS:   getEnvFloat("PROVIDER_RATE_LIMIT_RPS", 5),
+		ProviderRateLimitBurst: getEnvInt("PROVIDER_RATE_LIMIT_BURST", 10),
 	}
 }
 

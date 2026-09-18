@@ -74,10 +74,13 @@ func run(ctx context.Context) error {
 				log.Printf("mock provider callback: %v", err)
 			}
 		})
+	var verificationProvider domain.VerificationProvider = mockProvider
+	verificationProvider = provider.NewRateLimiter(verificationProvider, cfg.ProviderRateLimitRPS, cfg.ProviderRateLimitBurst)
+
 	casePool := worker.NewPool(256, func(ctx context.Context, caseID uuid.UUID) {
 		verificationUsecase.Process(ctx, caseID)
 	})
-	verificationUsecase = usecase.NewVerificationUsecase(caseRepo, documentRepo, applicantRepo, mockProvider, casePool, hub)
+	verificationUsecase = usecase.NewVerificationUsecase(caseRepo, documentRepo, applicantRepo, verificationProvider, casePool, hub)
 	casePool.Start(ctx, cfg.WorkerPoolSize)
 
 	srv := &http.Server{
