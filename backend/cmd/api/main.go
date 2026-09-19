@@ -75,6 +75,9 @@ func run(ctx context.Context) error {
 			}
 		})
 	var verificationProvider domain.VerificationProvider = mockProvider
+	if cfg.ProviderURL != "" {
+		verificationProvider = provider.NewHTTPProvider(cfg.ProviderURL)
+	}
 	verificationProvider = provider.NewRateLimiter(verificationProvider, cfg.ProviderRateLimitRPS, cfg.ProviderRateLimitBurst)
 	verificationProvider = provider.NewCircuitBreaker(verificationProvider, cfg.ProviderCBFailureThreshold, cfg.ProviderCBCooldown)
 

@@ -28,6 +28,8 @@ type Config struct {
 	ProviderRateLimitBurst     int
 	ProviderCBFailureThreshold int
 	ProviderCBCooldown         time.Duration
+
+	ProviderURL string
 }
 
 func Load() Config {
@@ -53,6 +55,8 @@ func Load() Config {
 		ProviderRateLimitBurst:     getEnvInt("PROVIDER_RATE_LIMIT_BURST", 10),
 		ProviderCBFailureThreshold: getEnvInt("PROVIDER_CB_FAILURE_THRESHOLD", 3),
 		ProviderCBCooldown:         getEnvDuration("PROVIDER_CB_COOLDOWN", 15*time.Second),
+
+		ProviderURL: getEnv("PROVIDER_URL", ""),
 	}
 }
 
