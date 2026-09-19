@@ -15,3 +15,5 @@ frontend/dist/
 
 docs/
 CLAUDE.md
+
+.env.production
