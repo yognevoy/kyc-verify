@@ -1,34 +1,26 @@
 package provider
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"kyc-verify/internal/domain"
 )
 
 type HTTPProvider struct {
-	url    string
-	client *http.Client
+	url     string
+	storage domain.DocumentStorage
+	client  *http.Client
 }
 
-func NewHTTPProvider(url string) *HTTPProvider {
-	return &HTTPProvider{url: url, client: &http.Client{Timeout: 10 * time.Second}}
-}
-
-type httpSubmitDocument struct {
-	ID   string `json:"id"`
-	Type string `json:"type"`
-}
-
-type httpSubmitRequest struct {
-	CaseID      string               `json:"case_id"`
-	ApplicantID string               `json:"applicant_id"`
-	Documents   []httpSubmitDocument `json:"documents"`
+func NewHTTPProvider(url string, storage domain.DocumentStorage) *HTTPProvider {
+	return &HTTPProvider{url: url, storage: storage, client: &http.Client{Timeout: 60 * time.Second}}
 }
 
 type httpSubmitResponse struct {
@@ -36,25 +28,18 @@ type httpSubmitResponse struct {
 }
 
 func (p *HTTPProvider) Submit(ctx context.Context, req domain.VerificationRequest) (string, error) {
-	docs := make([]httpSubmitDocument, len(req.Documents))
-	for i, d := range req.Documents {
-		docs[i] = httpSubmitDocument{ID: d.ID.String(), Type: string(d.Type)}
-	}
+	pr, pw := io.Pipe()
+	defer pr.Close()
+	mw := multipart.NewWriter(pw)
+	go func() {
+		pw.CloseWithError(p.writeMultipart(ctx, mw, req))
+	}()
 
-	body, err := json.Marshal(httpSubmitRequest{
-		CaseID:      req.CaseID.String(),
-		ApplicantID: req.ApplicantID.String(),
-		Documents:   docs,
-	})
-	if err != nil {
-		return "", fmt.Errorf("marshal submit request: %w", err)
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.url, bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.url, pr)
 	if err != nil {
 		return "", fmt.Errorf("build submit request: %w", err)
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Content-Type", mw.FormDataContentType())
 
 	resp, err := p.client.Do(httpReq)
 	if err != nil {
@@ -74,4 +59,37 @@ func (p *HTTPProvider) Submit(ctx context.Context, req domain.VerificationReques
 		return "", fmt.Errorf("submit response: empty reference")
 	}
 	return out.Reference, nil
+}
+
+func (p *HTTPProvider) writeMultipart(ctx context.Context, mw *multipart.Writer, req domain.VerificationRequest) error {
+	if err := mw.WriteField("case_id", req.CaseID.String()); err != nil {
+		return fmt.Errorf("write case_id: %w", err)
+	}
+	if err := mw.WriteField("applicant_id", req.ApplicantID.String()); err != nil {
+		return fmt.Errorf("write applicant_id: %w", err)
+	}
+
+	for _, d := range req.Documents {
+		if err := p.writeFile(ctx, mw, d); err != nil {
+			return err
+		}
+	}
+	return mw.Close()
+}
+
+func (p *HTTPProvider) writeFile(ctx context.Context, mw *multipart.Writer, d domain.Document) error {
+	f, err := p.storage.Open(ctx, d.FilePath)
+	if err != nil {
+		return fmt.Errorf("open document %s: %w", d.ID, err)
+	}
+	defer f.Close()
+
+	part, err := mw.CreateFormFile(string(d.Type), d.ID.String()+filepath.Ext(d.FilePath))
+	if err != nil {
+		return fmt.Errorf("create file part for document %s: %w", d.ID, err)
+	}
+	if _, err := io.Copy(part, f); err != nil {
+		return fmt.Errorf("write file part for document %s: %w", d.ID, err)
+	}
+	return nil
 }

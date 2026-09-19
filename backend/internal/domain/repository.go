@@ -34,6 +34,7 @@ type DocumentRepository interface {
 
 type DocumentStorage interface {
 	Save(ctx context.Context, applicantID uuid.UUID, docType DocumentType, filename string, r io.Reader) (path string, err error)
+	Open(ctx context.Context, path string) (io.ReadCloser, error)
 }
 
 type VerificationCaseRepository interface {

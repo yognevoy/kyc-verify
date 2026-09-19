@@ -41,3 +41,11 @@ func (s *LocalStorage) Save(_ context.Context, applicantID uuid.UUID, docType do
 	}
 	return path, nil
 }
+
+func (s *LocalStorage) Open(_ context.Context, path string) (io.ReadCloser, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open file: %w", err)
+	}
+	return f, nil
+}
