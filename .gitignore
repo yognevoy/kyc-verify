@@ -12,3 +12,6 @@ frontend/dist/
 .idea/
 .vscode/
 .DS_Store
+
+docs/
+CLAUDE.md
