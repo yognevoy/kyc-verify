@@ -93,6 +93,9 @@ func (u *VerificationUsecase) Submit(ctx context.Context, applicantID, userID uu
 		ActorID:    &userID,
 	}
 	if err := u.cases.Create(ctx, c, event); err != nil {
+		if errors.Is(err, domain.ErrActiveCaseExists) {
+			return nil, ErrCaseAlreadyPending
+		}
 		return nil, fmt.Errorf("create case: %w", err)
 	}
 

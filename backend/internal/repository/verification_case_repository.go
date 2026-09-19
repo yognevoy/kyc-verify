@@ -7,10 +7,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"kyc-verify/internal/domain"
 )
+
+const activeCaseIndex = "idx_verification_cases_one_active_per_applicant"
 
 type VerificationCaseRepository struct {
 	pool *pgxpool.Pool
@@ -30,6 +33,10 @@ func (r *VerificationCaseRepository) Create(ctx context.Context, c *domain.Verif
 	const insertCaseQ = `INSERT INTO verification_cases (id, applicant_id, status) VALUES ($1, $2, $3)
 		RETURNING created_at, updated_at`
 	if err := tx.QueryRow(ctx, insertCaseQ, c.ID, c.ApplicantID, c.Status).Scan(&c.CreatedAt, &c.UpdatedAt); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == uniqueViolationCode && pgErr.ConstraintName == activeCaseIndex {
+			return domain.ErrActiveCaseExists
+		}
 		return fmt.Errorf("insert verification case: %w", err)
 	}
 

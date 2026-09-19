@@ -1,0 +1,1 @@
+DROP INDEX idx_verification_cases_one_active_per_applicant;

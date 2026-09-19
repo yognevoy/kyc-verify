@@ -30,6 +30,7 @@ type VerificationCase struct {
 var (
 	ErrVerificationCaseNotFound = errors.New("verification case not found")
 	ErrInvalidTransition        = errors.New("invalid verification case status transition")
+	ErrActiveCaseExists         = errors.New("applicant already has an active verification case")
 )
 
 var allowedTransitions = map[CaseStatus][]CaseStatus{
