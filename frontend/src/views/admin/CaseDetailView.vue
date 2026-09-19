@@ -68,7 +68,7 @@ async function decide(action) {
         Comment
         <textarea v-model="comment"></textarea>
       </label>
-      <div>
+      <div class="actions">
         <button :disabled="submitting" @click="decide('approve')">Approve</button>
         <button :disabled="submitting" @click="decide('reject')">Reject</button>
       </div>
@@ -76,3 +76,11 @@ async function decide(action) {
     <p v-if="error" role="alert">{{ error }}</p>
   </main>
 </template>
+
+<style scoped>
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+</style>
