@@ -31,7 +31,7 @@ func ScoreRisk(in RiskInput) domain.RiskLevel {
 
 func ageInYears(birthDate, at time.Time) int {
 	age := at.Year() - birthDate.Year()
-	if at.YearDay() < birthDate.YearDay() {
+	if at.Month() < birthDate.Month() || (at.Month() == birthDate.Month() && at.Day() < birthDate.Day()) {
 		age--
 	}
 	return age
