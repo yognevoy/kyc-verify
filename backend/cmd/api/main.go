@@ -101,6 +101,8 @@ func run(ctx context.Context) error {
 			RefreshTTL:          cfg.RefreshTTL,
 			CookieSecure:        cfg.CookieSecure,
 			CORSAllowedOrigin:   cfg.CORSAllowedOrigin,
+
+			ProviderWebhookSecret: cfg.ProviderWebhookSecret,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

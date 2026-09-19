@@ -22,6 +22,8 @@ type Deps struct {
 	RefreshTTL          time.Duration
 	CookieSecure        bool
 	CORSAllowedOrigin   string
+
+	ProviderWebhookSecret string
 }
 
 func NewRouter(deps Deps) http.Handler {
@@ -55,12 +57,17 @@ func NewRouter(deps Deps) http.Handler {
 		applicants:   deps.ApplicantUsecase,
 		verification: deps.VerificationUsecase,
 	}
+	providerCallbackH := &providerCallbackHandler{
+		usecase: deps.VerificationUsecase,
+		secret:  deps.ProviderWebhookSecret,
+	}
 
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/auth/register", authH.register)
 		r.Post("/auth/login", authH.login)
 		r.Post("/auth/refresh", authH.refresh)
 		r.Post("/auth/logout", authH.logout)
+		r.Post("/provider-callback", providerCallbackH.handle)
 
 		r.Group(func(r chi.Router) {
 			r.Use(RequireAuth(deps.JWTIssuer))

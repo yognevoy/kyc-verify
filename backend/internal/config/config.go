@@ -29,7 +29,8 @@ type Config struct {
 	ProviderCBFailureThreshold int
 	ProviderCBCooldown         time.Duration
 
-	ProviderURL string
+	ProviderURL           string
+	ProviderWebhookSecret string
 }
 
 func Load() Config {
@@ -56,7 +57,8 @@ func Load() Config {
 		ProviderCBFailureThreshold: getEnvInt("PROVIDER_CB_FAILURE_THRESHOLD", 3),
 		ProviderCBCooldown:         getEnvDuration("PROVIDER_CB_COOLDOWN", 15*time.Second),
 
-		ProviderURL: getEnv("PROVIDER_URL", ""),
+		ProviderURL:           getEnv("PROVIDER_URL", ""),
+		ProviderWebhookSecret: getEnv("PROVIDER_WEBHOOK_SECRET", ""),
 	}
 }
 
