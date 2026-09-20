@@ -569,3 +569,37 @@ func TestVerificationUsecase_Process_ThroughWorkerPool(t *testing.T) {
 		t.Fatalf("distinct references = %d, want %d", len(references), cases)
 	}
 }
+
+func TestVerificationUsecase_RequeueSubmitted(t *testing.T) {
+	f := newFixture()
+	applicantID := f.applicant(domain.RiskLow)
+	statuses := []domain.CaseStatus{
+		domain.StatusSubmitted,
+		domain.StatusInReview,
+		domain.StatusApproved,
+		domain.StatusRejected,
+		domain.StatusSubmitted,
+	}
+	var want []uuid.UUID
+	for _, status := range statuses {
+		c := domain.VerificationCase{ID: uuid.New(), ApplicantID: applicantID, Status: status}
+		f.cases.put(c)
+		if status == domain.StatusSubmitted {
+			want = append(want, c.ID)
+		}
+	}
+
+	if err := f.uc.RequeueSubmitted(context.Background()); err != nil {
+		t.Fatalf("RequeueSubmitted: %v", err)
+	}
+
+	got := f.queue.enqueued()
+	if len(got) != len(want) {
+		t.Fatalf("enqueued = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("enqueued = %v, want %v", got, want)
+		}
+	}
+}

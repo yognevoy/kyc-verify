@@ -106,7 +106,16 @@ func (r *fakeCaseRepo) Transition(_ context.Context, c *domain.VerificationCase,
 }
 
 func (r *fakeCaseRepo) ListQueue(context.Context) ([]domain.QueueItem, error) {
-	return nil, nil
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var items []domain.QueueItem
+	for _, id := range r.order {
+		c := r.cases[id]
+		if c.Status == domain.StatusSubmitted || c.Status == domain.StatusInReview {
+			items = append(items, domain.QueueItem{CaseID: c.ID, ApplicantID: c.ApplicantID, Status: c.Status})
+		}
+	}
+	return items, nil
 }
 
 func (r *fakeCaseRepo) CountByApplicantIDAndStatus(_ context.Context, applicantID uuid.UUID, status domain.CaseStatus) (int, error) {

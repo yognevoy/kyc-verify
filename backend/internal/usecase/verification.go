@@ -107,6 +107,22 @@ func (u *VerificationUsecase) Submit(ctx context.Context, applicantID, userID uu
 	return c, nil
 }
 
+func (u *VerificationUsecase) RequeueSubmitted(ctx context.Context) error {
+	items, err := u.cases.ListQueue(ctx)
+	if err != nil {
+		return fmt.Errorf("list queue: %w", err)
+	}
+	for _, item := range items {
+		if item.Status != domain.StatusSubmitted {
+			continue
+		}
+		if err := u.queue.Enqueue(ctx, item.CaseID); err != nil {
+			return fmt.Errorf("enqueue case %s: %w", item.CaseID, err)
+		}
+	}
+	return nil
+}
+
 func (u *VerificationUsecase) GetLatestByApplicantID(ctx context.Context, applicantID uuid.UUID) (*domain.VerificationCase, error) {
 	return u.cases.GetLatestByApplicantID(ctx, applicantID)
 }

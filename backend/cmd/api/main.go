@@ -86,6 +86,9 @@ func run(ctx context.Context) error {
 	})
 	verificationUsecase = usecase.NewVerificationUsecase(caseRepo, documentRepo, applicantRepo, verificationProvider, casePool, hub)
 	casePool.Start(ctx, cfg.WorkerPoolSize)
+	if err := verificationUsecase.RequeueSubmitted(ctx); err != nil {
+		return fmt.Errorf("requeue submitted cases: %w", err)
+	}
 
 	srv := &http.Server{
 		Addr: ":" + cfg.HTTPPort,
