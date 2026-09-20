@@ -280,6 +280,8 @@ func writeVerificationError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, err.Error())
 	case errors.Is(err, domain.ErrInvalidTransition):
 		writeError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, usecase.ErrSelfReview):
+		writeError(w, http.StatusForbidden, err.Error())
 	case errors.Is(err, domain.ErrVerificationCaseNotFound):
 		writeError(w, http.StatusNotFound, err.Error())
 	default:

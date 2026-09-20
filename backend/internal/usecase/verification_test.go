@@ -366,10 +366,13 @@ func TestVerificationUsecase_ApproveReject(t *testing.T) {
 		approve     bool
 		status      domain.CaseStatus
 		unknownCase bool
+		ownCase     bool
 		comment     string
 		wantErr     error
 		wantStatus  domain.CaseStatus
 	}{
+		{name: "reviewer cannot approve their own case", approve: true, status: domain.StatusInReview, ownCase: true, wantErr: ErrSelfReview, wantStatus: domain.StatusInReview},
+		{name: "reviewer cannot reject their own case", approve: false, status: domain.StatusInReview, ownCase: true, wantErr: ErrSelfReview, wantStatus: domain.StatusInReview},
 		{name: "reviewer approves a case in review", approve: true, status: domain.StatusInReview, comment: "documents match", wantStatus: domain.StatusApproved},
 		{name: "reviewer rejects a case in review without comment", approve: false, status: domain.StatusInReview, wantStatus: domain.StatusRejected},
 		{name: "case that was not picked up yet cannot be decided", approve: true, status: domain.StatusSubmitted, wantErr: domain.ErrInvalidTransition, wantStatus: domain.StatusSubmitted},
@@ -382,10 +385,14 @@ func TestVerificationUsecase_ApproveReject(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture()
 			caseID := uuid.New()
-			if !tt.unknownCase {
-				caseID = f.caseWith(f.applicant(domain.RiskLow), tt.status)
-			}
 			reviewerID := uuid.New()
+			if !tt.unknownCase {
+				applicantID := f.applicant(domain.RiskLow)
+				if tt.ownCase {
+					f.applicants.put(domain.Applicant{ID: applicantID, UserID: reviewerID, RiskLevel: domain.RiskLow})
+				}
+				caseID = f.caseWith(applicantID, tt.status)
+			}
 
 			decide := f.uc.Reject
 			if tt.approve {

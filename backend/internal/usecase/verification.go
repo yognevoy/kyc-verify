@@ -14,6 +14,7 @@ import (
 var (
 	ErrMissingDocuments   = errors.New("passport, selfie and proof of address are all required")
 	ErrCaseAlreadyPending = errors.New("a verification case is already in progress")
+	ErrSelfReview         = errors.New("reviewer cannot decide their own verification case")
 )
 
 const maxAutoRejectAttempts = 2
@@ -236,6 +237,14 @@ func (u *VerificationUsecase) decide(ctx context.Context, caseID, reviewerID uui
 	c, err := u.cases.GetByID(ctx, caseID)
 	if err != nil {
 		return nil, fmt.Errorf("get case: %w", err)
+	}
+
+	applicant, err := u.applicants.GetByID(ctx, c.ApplicantID)
+	if err != nil {
+		return nil, fmt.Errorf("get applicant: %w", err)
+	}
+	if applicant.UserID == reviewerID {
+		return nil, ErrSelfReview
 	}
 
 	var commentPtr *string
